@@ -11,15 +11,28 @@ public class MeshGenerator : MonoBehaviour
     Vector3[] vertices;
     int[] triangles;
 
-    // Size of the grid
-    public int xSize = 20;
-    public int zSize = 20;
+    int xSize;
+    int zSize;
+
+    /*public float perlinStrength = 2f;*/
+
+    Texture2D Heightmap;
+    Color32[] imgArray;
 
     // Start is called before the first frame update
     void Start()
     {
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
+        mesh.RecalculateNormals();
+
+        //AHN3OuderlijkHuisGREY
+        Heightmap = Resources.Load<Texture2D>("AHN3OuderlijkHuisGREY");
+        imgArray = Heightmap.GetPixels32(0);
+        
+        xSize = Heightmap.width;
+        zSize = Heightmap.height;
+        Debug.Log("xSize: " + xSize.ToString() + " zSize: " + zSize.ToString());
 
         CreateShape();
         UpdateMesh();
@@ -27,42 +40,61 @@ public class MeshGenerator : MonoBehaviour
 
     void CreateShape()
     {
-        // (xSize + 1) * (zSize + 1) the amount of vertices for the grid
-        vertices = new Vector3[(xSize + 1) * (zSize + 1)];
+        vertices = new Vector3[xSize * zSize];
 
+        float y;
+        for(int index = 0, z = 0; z < zSize; z++)
+        {
+            for(int x = 0; x < xSize; x++)
+            {
+                if(z != zSize)
+                {
+                    Color32 pixel = new Color32(0,0,0,255);
+
+                    try
+                    {
+                     pixel = imgArray[x + z * xSize];
+                    }
+                    catch
+                    {
+                        Debug.Log("x: " + x.ToString() + " z: " + z.ToString() + " xSize: " + xSize.ToString() + " x + z * xSize: " + (x + z * xSize).ToString()); 
+                    }
+                    y = pixel.g * 0.5f;
+                    vertices[index] = new Vector3(x, y, z);
+                    index++;
+                }
+            }
+        }
         
-
-        // "<=" because zSize + 1 is your vertices amount
-        for (int index = 0, z = 0; z <= zSize; z++)
+        //check if 2x2 vertices or more
+        if((xSize * zSize) >= 4)
         {
-            for (int x = 0; x <= xSize; x++)
+            // For every square there are 2 triangles, resulting in 6 points
+            triangles = new int[((xSize - 1) * (zSize - 1)) * 6];
+
+            int vert = 0;
+            int tris = 0;
+            for(int z = 0; z < (zSize - 1); z++)
             {
-                float y = Mathf.PerlinNoise(x * .3f, z * .3f) * 2f;
-                vertices[index] = new Vector3(x, y, z);
-                index++;
-            }
-        }
+                for (int x = 0; x < (xSize - 1); x++)
+                {
+                    triangles[tris + 0] = vert + 0;
+                    triangles[tris + 1] = vert + xSize + 1;
+                    triangles[tris + 2] = vert + 1;
+                    triangles[tris + 3] = vert + xSize;
+                    triangles[tris + 4] = vert + xSize + 1;
+                    triangles[tris + 5] = vert + 0;
 
-        // create the array for the tiles (6 points for the two traingles)
-        triangles = new int[xSize * zSize * 6];
-
-        for (int vert = 0, tris = 0, z = 0; z < zSize; z++)
-        {
-            for (int x = 0; x < xSize; x++)
-            {
-                triangles[tris + 0] = vert + 0;
-                triangles[tris + 1] = vert + xSize + 1;
-                triangles[tris + 2] = vert + 1;
-                triangles[tris + 3] = vert + 1;
-                triangles[tris + 4] = vert + xSize + 1;
-                triangles[tris + 5] = vert + xSize + 2;
-
+                    vert++;
+                    tris += 6;
+                }
                 vert++;
-                tris += 6;
             }
-            vert++;
         }
-
+        else
+        {
+            Debug.Log("Wrong file dimensions, image needs to be atleast 2x2 pixels!");
+        }
     }
 
     void UpdateMesh()
